@@ -48,7 +48,7 @@ class Model(object):
         # loss = tf.reduce_mean(loss)
         self.loss = tf.reduce_mean(
             tf.nn.nce_loss(nce_weights, nce_biases, inputs=target, labels=self.y, num_sampled=64,
-                           num_classes=self.VOCAB_SIZE))
+                           num_classes=self.VOCAB_SIZE, num_true=self.VOCAB_SIZE))
         self.train_op = tf.train.AdamOptimizer(self.LR).minimize(self.loss)
 
         # return score, acc, loss, train_step, embedding_matrix
