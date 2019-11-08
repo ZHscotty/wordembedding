@@ -4,8 +4,7 @@ from keras.utils import to_categorical
 import numpy as np
 
 
-def prepare_data(window):
-    d = Data()
+def prepare_data(window, d):
     tokens = d.token_ids
     word2index = d.word2index
     trainset, devset = train_test_split(tokens, test_size=0.3, random_state=40)
