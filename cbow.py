@@ -3,6 +3,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
 import math
+from keras.utils import to_categorical
 import os
 
 
@@ -30,16 +31,17 @@ class Model(object):
             self.embedding_matrix = w
 
             nce_weights = tf.Variable(
-                tf.truncated_normal([self.VOCAB_SIZE, self.EMBED_SIZE],
-                                    stddev=1.0 / math.sqrt(self.EMBED_SIZE)))
+                tf.truncated_normal([self.VOCAB_SIZE, self.EMBED_SIZE], stddev=1.0 / math.sqrt(self.EMBED_SIZE)))
             nce_biases = tf.Variable(tf.zeros([self.VOCAB_SIZE]))
 
         target = tf.reduce_sum(embedd, axis=1)
+        self.print_shape(name='target', tensor=target)
 
         with tf.variable_scope('Dense2'):
             w = tf.get_variable('weight', [self.EMBED_SIZE, self.VOCAB_SIZE])
             b = tf.get_variable('bias', [self.VOCAB_SIZE])
             self.score = tf.einsum('ij,jk->ik', target, w) + b
+            self.print_shape(name='score', tensor=self.score)
 
         # 准确率
         self.acc = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(self.score, axis=1), tf.argmax(self.y, axis=1)), tf.float32))
@@ -47,8 +49,8 @@ class Model(object):
         # loss = tf.nn.softmax_cross_entropy_with_logits(labels=self.y, logits=score)
         # loss = tf.reduce_mean(loss)
         self.loss = tf.reduce_mean(
-            tf.nn.nce_loss(nce_weights, nce_biases, inputs=target, labels=self.y, num_sampled=64,
-                           num_classes=self.VOCAB_SIZE, num_true=self.VOCAB_SIZE))
+            tf.nn.sampled_softmax_loss(nce_weights, nce_biases, inputs=target, labels=self.y, num_sampled=64,
+                                       num_classes=self.VOCAB_SIZE, num_true=self.VOCAB_SIZE))
         self.train_op = tf.train.AdamOptimizer(self.LR).minimize(self.loss)
 
         # return score, acc, loss, train_step, embedding_matrix
@@ -79,7 +81,7 @@ class Model(object):
                                                                                len(x_train), acc_t, loss_t))
                     index += 1
                     acc_total += acc_t
-                    loss_t += loss_t
+                    loss_total += loss_t
 
                 acc_t = acc_total/index
                 loss_t = loss_total/index
@@ -89,7 +91,7 @@ class Model(object):
                 acc_total = 0
                 loss_total = 0
                 index = 0
-                for x_batch, y_batch in self.get_batch(x_dev, y_dev, 10000):
+                for x_batch, y_batch in self.get_batch(x_dev, y_dev, 1000):
                     acc_d, loss_d = sess.run([self.acc, self.loss], {self.x: x_batch, self.y: y_batch})
                     acc_total += acc_d
                     loss_total += loss_d
@@ -103,10 +105,10 @@ class Model(object):
 
                 print('Epoch{}----acc:{:.5f},loss:{:.5f},val-acc:{:.5f},val_loss:{:.5f}'.format(train_step, acc_t,
                                                                                                 loss_t, acc_d, loss_d))
-                if loss_d > loss_stop:
+                if loss_d > loss_min:
                     if n > self.ll:
                         self.should_stop = True
-                        es_step = train_step
+                        earlystop = train_step
                     else:
                         n += 1
                 else:
@@ -114,11 +116,11 @@ class Model(object):
                         os.makedirs(self.MODEL_DIC)
                     saver.save(sess, os.path.join(self.MODEL_DIC, 'cbow_model'))
                     n = 0
-                    loss_stop = loss_d
+                    loss_min = loss_d
                 train_step += 1
 
             if self.should_stop is True:
-                print('Early Stop at Epoch{}'.format(es_step))
+                print('Early Stop at Epoch{}'.format(earlystop))
 
         if not os.path.exists(self.PIC_DIC):
             os.makedirs(self.PIC_DIC)
@@ -157,6 +159,7 @@ class Model(object):
                 end = len(data)
             x_batch = data[begin:end]
             y_batch = label[begin:end]
+            to_categorical(y_batch, num_classes=self.VOCAB_SIZE)
             begin = end
             yield x_batch, y_batch
 

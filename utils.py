@@ -10,10 +10,10 @@ def prepare_data(window, d):
     trainset, devset = train_test_split(tokens, test_size=0.3, random_state=40)
     train_data, train_label = create_data(trainset, window)
     train_data = np.array(train_data)
-    train_label = to_categorical(train_label, num_classes=len(word2index))
+    # train_label = to_categorical(train_label, num_classes=len(word2index))
     dev_data, dev_label = create_data(devset, window)
     dev_data = np.array(dev_data)
-    dev_label = to_categorical(dev_label, num_classes=len(word2index))
+    # dev_label = to_categorical(dev_label, num_classes=len(word2index))
     return train_data, train_label, dev_data, dev_label
 
 
